@@ -58,39 +58,55 @@ impl<B: Bus> Cpu<B> {
                 ]);
                 bus.read(addr)
             }
-            AddrMode::ZeroPage => {
-                let addr = u16::from(self.read_from_pc(bus));
-                bus.read(addr)
-            }
             AddrMode::AbsoluteX => {
                 let addr = u16::from_le_bytes([
                     self.read_from_pc(bus),
                     self.read_from_pc(bus),
                 ]);
-                bus.read(addr.wrapping_add(self.x.into()))
+                let new_addr = addr.wrapping_add(self.x.into());
+                // Crossing page boundary
+                if addr >> 8 != new_addr >> 8 {
+                    bus.read(addr & 0xff00 | new_addr & 0xff);
+                }
+                bus.read(new_addr)
             }
             AddrMode::AbsoluteY => {
                 let addr = u16::from_le_bytes([
                     self.read_from_pc(bus),
                     self.read_from_pc(bus),
                 ]);
-                bus.read(addr.wrapping_add(self.y.into()))
+                let new_addr = addr.wrapping_add(self.y.into());
+                // Crossing page boundary
+                if addr >> 8 != new_addr >> 8 {
+                    bus.read(addr & 0xff00 | new_addr & 0xff);
+                }
+                bus.read(new_addr)
+            }
+            AddrMode::ZeroPage => {
+                let addr = u16::from(self.read_from_pc(bus));
+                bus.read(addr)
             }
             AddrMode::ZeroPageX => {
                 let addr = u16::from(self.read_from_pc(bus));
-                bus.read(addr.wrapping_add(self.x.into()))
+                bus.read(addr);
+                bus.read((addr + u16::from(self.x)) % 256)
             }
             AddrMode::ZeroPageY => {
                 let addr = u16::from(self.read_from_pc(bus));
-                bus.read(addr.wrapping_add(self.y.into()))
+                bus.read(addr);
+                bus.read((addr + u16::from(self.y)) % 256)
             }
             _ => panic!()
         }
     }
 
+    pub fn prefetch(&self, bus: &mut B) {
+        bus.read(self.pc);
+    }
+
     fn read_from_pc(&mut self, bus: &mut B) -> u8 {
         let val = bus.read(self.pc);
-        self.pc += 1;
+        self.pc = self.pc.wrapping_add(1);
         val
     }
 }

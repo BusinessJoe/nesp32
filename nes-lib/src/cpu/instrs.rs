@@ -11,7 +11,7 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0xEA => nop_implied,
             // Illegal NOPs
             0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xFA => nop_implied,
-            0x80 | 0x82 | 0x89 => nop_immediate,
+            0x80 | 0x82 | 0x89 | 0xC2 | 0xE2 => nop_immediate,
             0x04 | 0x44 | 0x64 => nop_zeropage,
             0x14 | 0x34 | 0x54 | 0x74 | 0xD4 | 0xF4 => nop_zeropage_x,
             0x0C => nop_absolute,
@@ -27,7 +27,9 @@ fn panic_fp<B: Bus>(_: &mut Cpu<B>, _: &mut B) {
     panic!()
 }
 
-fn nop_implied<B: Bus>(_: &mut Cpu<B>, _: &mut B) { }
+fn nop_implied<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus)
+}
 
 fn nop_immediate<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.read_arg(bus, AddrMode::Immediate);
