@@ -107,10 +107,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc_macros_lib"
-version = "0.1.0"
-
-[[package]]
 name = "quote"
 version = "1.0.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"

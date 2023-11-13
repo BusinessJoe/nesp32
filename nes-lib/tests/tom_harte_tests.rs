@@ -62,21 +62,17 @@ fn nes_6502_tests() {
     });
 
     let mut num_passed = 0;
-    let mut num_run = 0;
 
     for res in results {
-        num_run += 1;
         match res {
             Ok(_) => num_passed += 1,
             Err((case_name, msg)) => {
                 eprintln!("test {} failed: {}", case_name, msg);
+                eprintln!("Passed {} cpu tests.", num_passed);
+                assert!(false);
             }
         }
     }
-
-    eprintln!("Passed {}/{}", num_passed, num_run);
-
-    assert_eq!(num_passed, num_run);
 }
 
 fn run_nes_6502_test_case(case: Nes6502TestCase) -> Result<(), (String, String)> {
