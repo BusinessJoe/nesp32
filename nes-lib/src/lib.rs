@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(const_trait_impl)]
 
 mod nes;
 mod cpu;

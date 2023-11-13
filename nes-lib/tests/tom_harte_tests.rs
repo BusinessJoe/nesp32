@@ -1,20 +1,21 @@
 // Tests are from https://github.com/TomHarte/ProcessorTests/tree/main/nes6502
-use nes_lib;
+use nes_lib::{self, Bus};
 
-use std::{fmt, fs};
+use std::{fmt, fs, panic};
 use serde::Deserialize;
-use serde_json;
+use seq_macro::seq;
+use pretty_assertions::assert_eq;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct Nes6502TestCase {
     name: String,
-    initial: NesState,
-    r#final: NesState,
+    initial: CpuBusState,
+    r#final: CpuBusState,
     cycles: Vec<(u16, u8, String)>,
 }
 
-#[derive(Deserialize)]
-struct NesState {
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
+struct CpuBusState {
     pc: u16,
     s: u8,
     a: u8,
@@ -31,53 +32,107 @@ impl fmt::Display for Nes6502TestCase {
 }
 
 struct MockBus {
-    mem: Vec<u8>
+    mem: Vec<u8>,
+    events: Vec<(u16, u8, String)>,
 }
 
 impl MockBus {
     fn new() -> Self {
         Self {
-            mem: vec![0; 0x10000]
+            mem: vec![0; 0x10000],
+            events: vec![], 
         }
+    }
+}
+
+impl MockBus {
+    fn no_event_read(&mut self, addr: nes_lib::Addr) -> u8 {
+        self.mem[usize::from(addr)]
+    }
+
+    fn no_event_write(&mut self, addr: nes_lib::Addr, value: u8) {
+        self.mem[usize::from(addr)] = value;
     }
 }
 
 impl nes_lib::Bus for MockBus {
     fn read(&mut self, addr: nes_lib::Addr) -> u8 {
-        self.mem[usize::from(addr)]
+        let val = self.no_event_read(addr);
+        self.events.push((addr, val, "read".to_string()));
+        val
     }
+
     fn write(&mut self, addr: nes_lib::Addr, value: u8) {
-        self.mem[usize::from(addr)] = value;
+        self.events.push((addr, value, "write".to_string()));
+        self.no_event_write(addr, value);
     }
 }
 
-#[test] 
-fn nes_6502_tests() {
-    let results = (0 ..= 0xFF).flat_map(|i| {
-        let path = format!("tests/nes6502/v1/{:02X}.json", i);
+seq!(N in 0..=255 {
+    #[test] 
+    fn nes_6502_tests_~N() {
+        let path = format!("tests/nes6502/v1/{:02x}.json", N);
         let data = fs::read_to_string(path).expect("Unable to read file");
         let test_cases: Vec<Nes6502TestCase> = serde_json::from_str(&data).expect("Unable to parse data");
 
-        test_cases.into_iter().map(run_nes_6502_test_case)
-    });
-
-    let mut num_passed = 0;
-
-    for res in results {
-        match res {
-            Ok(_) => num_passed += 1,
-            Err((case_name, msg)) => {
-                eprintln!("test {} failed: {}", case_name, msg);
-                eprintln!("Passed {} cpu tests.", num_passed);
-                assert!(false);
-            }
+        for case in test_cases {
+            run_nes_6502_test_case(case);
         }
+    }
+});
+
+fn run_nes_6502_test_case(case: Nes6502TestCase) {
+    let mut bus = MockBus::new();
+    let mut cpu = nes_lib::Cpu::new();
+    initialize_nes_state(&mut cpu, &mut bus, &case.initial);
+
+    cpu.tick(&mut bus);
+
+    let result = {
+        let case = case.clone();
+        panic::catch_unwind(move || {
+            assert_nes_state(&mut cpu, &mut bus, &case.r#final);
+            assert_bus_events(&bus, &case.cycles); 
+        })
+    };
+
+    if let Err(err) = result {
+        eprintln!("Case '{}' failed:\n{:#?}", case.name, case);
+        panic::resume_unwind(err)
     }
 }
 
-fn run_nes_6502_test_case(case: Nes6502TestCase) -> Result<(), (String, String)> {
-    let bus = MockBus::new();
-    let mut nes = nes_lib::Nes::new(bus);
+fn initialize_nes_state(cpu: &mut nes_lib::Cpu<MockBus>, bus: &mut MockBus, initial: &CpuBusState) {
+    cpu.pc = initial.pc;
+    cpu.a = initial.a;
+    cpu.x = initial.x;
+    cpu.y = initial.y;
+    cpu.s = initial.s;
+    cpu.p = initial.p;
 
-    Err((case.name, "Unimplemented".to_string()))
+    for (addr, val) in initial.ram.iter() {
+        bus.no_event_write(*addr, *val)
+    }
+}
+
+fn assert_nes_state(cpu: &mut nes_lib::Cpu<MockBus>, bus: &mut MockBus, state: &CpuBusState) {
+    let mut current_state = CpuBusState {
+        pc: cpu.pc,
+        a: cpu.a,
+        x: cpu.x,
+        y: cpu.y,
+        s: cpu.s,
+        p: cpu.p,
+        ram: vec![],
+    };
+
+    for (addr, _) in state.ram.iter() {
+        current_state.ram.push((*addr, bus.no_event_read(*addr)));
+    }
+
+    assert_eq!(state, &current_state);
+}
+
+fn assert_bus_events(bus: &MockBus, cycles: &[(u16, u8, String)]) {
+    assert_eq!(bus.events, cycles);
 }
