@@ -21,7 +21,7 @@ fn main() -> ! {
 
     println!("Hello world!");
     loop {
-        println!("{:?}", nes);
+        println!("pc: {}", nes.cpu.pc);
         delay.delay_ms(500u32);
     }
 }
