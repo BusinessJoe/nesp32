@@ -41,6 +41,8 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x21 => and_indirectx,
             0x31 => and_indirecty,
 
+            // ASL
+
             0xEA => nop_implied,
             // Illegal NOPs
             0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xFA => nop_implied,

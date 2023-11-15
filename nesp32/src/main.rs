@@ -16,7 +16,8 @@ fn main() -> ! {
     let mut delay = Delay::new(&clocks);
 
     let cart = nes_lib::cart::NoMapperCart::new(b"Cart Name");
-    let nes = nes_lib::Nes::new(cart);
+    let bus = nes_lib::NesBus::new(cart);
+    let nes = nes_lib::Nes::new(bus);
 
     println!("Hello world!");
     loop {
