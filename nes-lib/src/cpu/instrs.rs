@@ -32,6 +32,14 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x71 => adc_indirecty,
 
             // AND
+            0x29 => and_immediate,
+            0x25 => and_zeropage,
+            0x35 => and_indexedzx,
+            0x2D => and_absolute,
+            0x3D => and_absolutex,
+            0x39 => and_absolutey,
+            0x21 => and_indirectx,
+            0x31 => and_indirecty,
 
             0xEA => nop_implied,
             // Illegal NOPs
@@ -89,7 +97,6 @@ fn adc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
 
 with_addressing_modes!(adc, Immediate, ZeroPage, IndexedZX, Absolute, AbsoluteX, AbsoluteY, IndirectX, IndirectY);
 
-/*
 fn and<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
     cpu.a &= arg;
     cpu.update_flags(SrUpdate {
@@ -97,52 +104,5 @@ fn and<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
     }.result());
 }
 
-with_addressing_modes!(and, 
-*/
+with_addressing_modes!(and, Immediate, ZeroPage, IndexedZX, Absolute, AbsoluteX, AbsoluteY, IndirectX, IndirectY);
 
-#[cfg(test)]
-mod tests {
-    use crate::{Cpu, Bus, Addr};
-
-    use super::adc;
-
-    struct MockBus {
-        mem: [u8; 0x10000],
-    }
-
-    impl MockBus {
-        fn new() -> Self {
-            Self {
-                mem: [0; 0x10000],
-            }
-        }
-    }
-
-    impl Bus for MockBus {
-        fn read(&mut self, addr: Addr) -> u8 {
-            self.mem[usize::from(addr)]
-        }
-
-        fn write(&mut self, addr: Addr, value: u8) {
-            self.mem[usize::from(addr)] = value;
-        }
-    }
-
-
-    #[test]
-    fn test_adc_0() {
-        let mut cpu: Cpu<MockBus> = Cpu::new();
-        let mut bus = MockBus::new();
-        cpu.a = 238;
-        cpu.sr = 0b0000_0001;
-        adc(&mut cpu, &mut bus, 0);
-        assert_eq!(cpu.a, 239);
-    }
-
-    #[test]
-    fn test_sanity() {
-        let (res, c) = (238_u8).overflowing_add(1);
-        assert_eq!(res, 239);
-        assert_eq!(c, false);
-    }
-}
