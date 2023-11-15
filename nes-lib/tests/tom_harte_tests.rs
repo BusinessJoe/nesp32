@@ -1,10 +1,10 @@
 // Tests are from https://github.com/TomHarte/ProcessorTests/tree/main/nes6502
-use nes_lib::{self, Bus};
+use nes_lib;
 
-use std::{fmt, fs, panic};
-use serde::Deserialize;
-use seq_macro::seq;
 use pretty_assertions::assert_eq;
+use seq_macro::seq;
+use serde::Deserialize;
+use std::{fmt, fs, panic};
 
 #[derive(Debug, Deserialize, Clone)]
 struct Nes6502TestCase {
@@ -40,13 +40,13 @@ impl MockBus {
     fn new() -> Self {
         Self {
             mem: vec![0; 0x10000],
-            events: vec![], 
+            events: vec![],
         }
     }
 }
 
 impl MockBus {
-    fn no_event_read(&mut self, addr: nes_lib::Addr) -> u8 {
+    fn no_event_read(&self, addr: nes_lib::Addr) -> u8 {
         self.mem[usize::from(addr)]
     }
 
@@ -68,31 +68,21 @@ impl nes_lib::Bus for MockBus {
     }
 }
 
-seq!(N in 0..=255 {
-    #[test] 
-    fn nes_6502_tests_~N() {
-        let path = format!("tests/nes6502/v1/{:02x}.json", N);
-        let data = fs::read_to_string(path).expect("Unable to read file");
-        let test_cases: Vec<Nes6502TestCase> = serde_json::from_str(&data).expect("Unable to parse data");
-
-        for case in test_cases {
-            run_nes_6502_test_case(case);
-        }
-    }
-});
-
 fn run_nes_6502_test_case(case: Nes6502TestCase) {
     let mut bus = MockBus::new();
     let mut cpu = nes_lib::Cpu::new();
     initialize_nes_state(&mut cpu, &mut bus, &case.initial);
 
     cpu.tick(&mut bus);
+    dbg!(cpu.a);
 
     let result = {
+        dbg!(cpu.a);
         let case = case.clone();
         panic::catch_unwind(move || {
-            assert_nes_state(&mut cpu, &mut bus, &case.r#final);
-            assert_bus_events(&bus, &case.cycles); 
+            dbg!(cpu.a);
+            assert_nes_state(&cpu, &bus, &case.r#final);
+            assert_bus_events(&bus, &case.cycles);
         })
     };
 
@@ -107,22 +97,22 @@ fn initialize_nes_state(cpu: &mut nes_lib::Cpu<MockBus>, bus: &mut MockBus, init
     cpu.a = initial.a;
     cpu.x = initial.x;
     cpu.y = initial.y;
-    cpu.s = initial.s;
-    cpu.p = initial.p;
+    cpu.sr = initial.p;
+    cpu.sp = initial.s;
 
     for (addr, val) in initial.ram.iter() {
         bus.no_event_write(*addr, *val)
     }
 }
 
-fn assert_nes_state(cpu: &mut nes_lib::Cpu<MockBus>, bus: &mut MockBus, state: &CpuBusState) {
+fn assert_nes_state(cpu: &nes_lib::Cpu<MockBus>, bus: &MockBus, state: &CpuBusState) {
     let mut current_state = CpuBusState {
         pc: cpu.pc,
         a: cpu.a,
         x: cpu.x,
         y: cpu.y,
-        s: cpu.s,
-        p: cpu.p,
+        p: cpu.sr,
+        s: cpu.sp,
         ram: vec![],
     };
 
@@ -130,9 +120,24 @@ fn assert_nes_state(cpu: &mut nes_lib::Cpu<MockBus>, bus: &mut MockBus, state: &
         current_state.ram.push((*addr, bus.no_event_read(*addr)));
     }
 
-    assert_eq!(state, &current_state);
+    assert_eq!(&current_state, state);
 }
 
 fn assert_bus_events(bus: &MockBus, cycles: &[(u16, u8, String)]) {
     assert_eq!(bus.events, cycles);
 }
+
+// Generate test fns for all 256 opcodes
+seq!(N in 0..=255 {
+    #[test]
+    fn nes_6502_tests_~N() {
+        let path = format!("tests/nes6502/v1/{:02x}.json", N);
+        let data = fs::read_to_string(path).expect("Unable to read file");
+        let test_cases: Vec<Nes6502TestCase> = serde_json::from_str(&data).expect("Unable to parse data");
+
+        for case in test_cases {
+            run_nes_6502_test_case(case);
+        }
+    }
+});
+
