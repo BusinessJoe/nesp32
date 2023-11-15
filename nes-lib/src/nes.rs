@@ -1,4 +1,4 @@
-use crate::{Cpu, Bus};
+use crate::{Bus, Cpu};
 
 #[derive(Debug)]
 pub struct Nes<B: Bus> {

@@ -12,7 +12,7 @@ pub trait Bus {
 
 pub struct NesBus<C: Cart> {
     iram: [u8; 0x800],
-    ppu: [u8; 0x8], // will be replaced by PPU
+    ppu: [u8; 0x8],     // will be replaced by PPU
     apu_io: [u8; 0x18], // will be replaced by APU/IO
     cart: C,
 }
@@ -33,13 +33,15 @@ impl<C: Cart> Bus for NesBus<C> {
         0
     }
 
-    fn write(&mut self, addr: Addr, value: u8) {
-        
-    }
+    fn write(&mut self, addr: Addr, value: u8) {}
 }
 
 impl<C: Cart> Debug for NesBus<C> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Bus {{ cart: {}, OTHER_MEM }}", core::str::from_utf8(&self.cart.name()).unwrap())
+        write!(
+            f,
+            "Bus {{ cart: {}, OTHER_MEM }}",
+            core::str::from_utf8(&self.cart.name()).unwrap()
+        )
     }
 }

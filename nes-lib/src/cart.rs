@@ -12,7 +12,7 @@ pub trait Cart {
 
 #[derive(Debug)]
 pub struct NoMapperCart {
-    pub name: [u8; MAX_CART_NAME_LENGTH]
+    pub name: [u8; MAX_CART_NAME_LENGTH],
 }
 
 impl NoMapperCart {
@@ -20,10 +20,8 @@ impl NoMapperCart {
     // Panics if the given name is longer than MAX_CART_NAME_LENGTH bytes.
     pub fn new(name_slice: &[u8]) -> Self {
         let mut name = [0; MAX_CART_NAME_LENGTH];
-        name[0 .. name_slice.len()].copy_from_slice(name_slice);
-        Self {
-            name
-        }
+        name[0..name_slice.len()].copy_from_slice(name_slice);
+        Self { name }
     }
 }
 
@@ -36,7 +34,5 @@ impl Cart for NoMapperCart {
         0
     }
 
-    fn write(&mut self, addr: Addr, val: u8) {
-        
-    }
+    fn write(&mut self, addr: Addr, val: u8) {}
 }

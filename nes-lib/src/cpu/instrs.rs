@@ -1,20 +1,31 @@
-use crate::{Cpu, Bus};
+use crate::{Addr, Bus, Cpu};
 
-use super::{Lut, AddrMode, status_register::{Sr, SrUpdate}};
+use super::{
+    status_register::{Sr, SrUpdate},
+    AddrMode, Lut,
+};
 
 macro_rules! with_addressing_modes {
-    ( $func_name:ident, $( $addr_mode:ident ),* ) => {
-        $(
-            paste::item! {
-                fn [< $func_name _ $addr_mode:lower >] <B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
-                    let arg = cpu.read_arg(bus, AddrMode::$addr_mode);
-                    $func_name(cpu, bus, arg)
-                }
+    ( $func_name:ident, $func_suffix:ident, $addr_mode:expr ) => {
+        paste::item! {
+            fn [< $func_name _ $func_suffix >] <B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+                let arg = cpu.read_arg(bus, $addr_mode);
+                $func_name(cpu, bus, arg)
             }
-        )*
-    }
+        }
+    };
 }
 
+macro_rules! with_addressing_modes_addr {
+    ( $func_name:ident, $func_suffix:ident, $addr_mode:expr ) => {
+        paste::item! {
+            fn [< $func_name _ $func_suffix >] <B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+                let addr = cpu.read_addr(bus, $addr_mode);
+                $func_name(cpu, bus, addr)
+            }
+        }
+    };
+}
 
 pub const fn generate_lut<B: Bus>() -> Lut<B> {
     let mut lut: Lut<B> = [panic_fp; 256];
@@ -42,6 +53,11 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x31 => and_indirecty,
 
             // ASL
+            0x0A => asl_acc,
+            0x06 => asl_zeropage,
+            0x16 => asl_indexedzx,
+            0x0E => asl_absolute,
+            0x1E => asl_absolutex,
 
             0xEA => nop_implied,
             // Illegal NOPs
@@ -76,9 +92,13 @@ fn nop_implied<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.prefetch(bus)
 }
 
-fn nop<B: Bus>(_: &mut Cpu<B>, _: &mut B, _: u8) { }
+fn nop<B: Bus>(_: &mut Cpu<B>, _: &mut B, _: u8) {}
 
-with_addressing_modes!(nop, Immediate, ZeroPage, IndexedZX, Absolute, AbsoluteX);
+with_addressing_modes!(nop, immediate, AddrMode::Immediate);
+with_addressing_modes!(nop, zeropage, AddrMode::ZeroPage);
+with_addressing_modes!(nop, indexedzx, AddrMode::IndexedZX);
+with_addressing_modes!(nop, absolute, AddrMode::Absolute);
+with_addressing_modes!(nop, absolutex, AddrMode::AbsoluteX { force_cycle: false });
 
 fn adc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
     let prev = cpu.a;
@@ -90,21 +110,73 @@ fn adc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
 
     cpu.a = res;
 
-    cpu.update_flags(SrUpdate {
-        c: Some(c1 | c2),
-        v: Some(v),
-        ..SrUpdate::num_flags(res)
-    }.result());
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(c1 | c2),
+            v: Some(v),
+            ..SrUpdate::num_flags(res)
+        }
+        .result(),
+    );
 }
 
-with_addressing_modes!(adc, Immediate, ZeroPage, IndexedZX, Absolute, AbsoluteX, AbsoluteY, IndirectX, IndirectY);
+with_addressing_modes!(adc, immediate, AddrMode::Immediate);
+with_addressing_modes!(adc, zeropage, AddrMode::ZeroPage);
+with_addressing_modes!(adc, indexedzx, AddrMode::IndexedZX);
+with_addressing_modes!(adc, absolute, AddrMode::Absolute);
+with_addressing_modes!(adc, absolutex, AddrMode::AbsoluteX { force_cycle: false });
+with_addressing_modes!(adc, absolutey, AddrMode::AbsoluteY { force_cycle: false });
+with_addressing_modes!(adc, indirectx, AddrMode::IndirectX);
+with_addressing_modes!(adc, indirecty, AddrMode::IndirectY);
 
 fn and<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
     cpu.a &= arg;
-    cpu.update_flags(SrUpdate {
-        ..SrUpdate::num_flags(cpu.a)
-    }.result());
+    cpu.update_flags(
+        SrUpdate {
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
 }
 
-with_addressing_modes!(and, Immediate, ZeroPage, IndexedZX, Absolute, AbsoluteX, AbsoluteY, IndirectX, IndirectY);
+with_addressing_modes!(and, immediate, AddrMode::Immediate);
+with_addressing_modes!(and, zeropage, AddrMode::ZeroPage);
+with_addressing_modes!(and, indexedzx, AddrMode::IndexedZX);
+with_addressing_modes!(and, absolute, AddrMode::Absolute);
+with_addressing_modes!(and, absolutex, AddrMode::AbsoluteX { force_cycle: false });
+with_addressing_modes!(and, absolutey, AddrMode::AbsoluteY { force_cycle: false });
+with_addressing_modes!(and, indirectx, AddrMode::IndirectX);
+with_addressing_modes!(and, indirecty, AddrMode::IndirectY);
 
+fn asl<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let arg = bus.read(addr);
+    let cout = arg >> 7 == 1;
+    let res = arg << 1;
+    bus.write(addr, arg);
+    bus.write(addr, res);
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(res)
+        }
+        .result(),
+    );
+}
+
+fn asl_acc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    let cout = cpu.a >> 7 == 1;
+    cpu.a = cpu.a << 1;
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
+}
+
+with_addressing_modes_addr!(asl, zeropage, AddrMode::ZeroPage);
+with_addressing_modes_addr!(asl, indexedzx, AddrMode::IndexedZX);
+with_addressing_modes_addr!(asl, absolute, AddrMode::Absolute);
+with_addressing_modes_addr!(asl, absolutex, AddrMode::AbsoluteX { force_cycle: true });

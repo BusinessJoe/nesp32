@@ -1,4 +1,4 @@
-use crate::{Cpu, Bus};
+use crate::{Bus, Cpu};
 
 #[derive(Clone, Copy)]
 pub enum Sr {
@@ -8,7 +8,7 @@ pub enum Sr {
     D,
     B,
     V,
-    N
+    N,
 }
 
 impl Sr {
@@ -67,16 +67,7 @@ impl SrUpdate {
     pub const fn result(&self) -> SrUpdateResult {
         let mut mask = 0;
         let mut val = 0;
-        let flags = [
-            self.c,
-            self.z,
-            self.i,
-            self.d,
-            self.b,
-            None,
-            self.v,
-            self.n,
-        ];
+        let flags = [self.c, self.z, self.i, self.d, self.b, None, self.v, self.n];
         let mut i = 0;
         while i < flags.len() {
             if flags[i].is_none() {
@@ -87,10 +78,7 @@ impl SrUpdate {
             }
             i += 1;
         }
-        SrUpdateResult {
-            mask,
-            val,
-        }
+        SrUpdateResult { mask, val }
     }
 }
 
@@ -106,19 +94,22 @@ impl<B: Bus> Cpu<B> {
 
 #[cfg(test)]
 mod test {
-    use crate::cpu::status_register::{SrUpdate, Sr};
-    use crate::{Cpu, NesBus};
     use crate::cart::NoMapperCart;
+    use crate::cpu::status_register::{Sr, SrUpdate};
+    use crate::{Cpu, NesBus};
 
     #[test]
     fn test_set_carry() {
         let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
-        for i in 0 ..= 255 {
+        for i in 0..=255 {
             cpu.sr = i;
-            cpu.update_flags(SrUpdate {
-                c: Some(true),
-                ..SrUpdate::default()
-            }.result());
+            cpu.update_flags(
+                SrUpdate {
+                    c: Some(true),
+                    ..SrUpdate::default()
+                }
+                .result(),
+            );
             assert_eq!(cpu.sr, i | 1);
             assert_eq!(cpu.get_flag(Sr::C), true);
         }
@@ -127,12 +118,15 @@ mod test {
     #[test]
     fn test_reset_carry() {
         let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
-        for i in 0 ..= 255 {
+        for i in 0..=255 {
             cpu.sr = i;
-            cpu.update_flags(SrUpdate {
-                c: Some(false),
-                ..SrUpdate::default()
-            }.result());
+            cpu.update_flags(
+                SrUpdate {
+                    c: Some(false),
+                    ..SrUpdate::default()
+                }
+                .result(),
+            );
             assert_eq!(cpu.sr, i & 0b11111110);
             assert_eq!(cpu.get_flag(Sr::C), false);
         }
@@ -141,12 +135,15 @@ mod test {
     #[test]
     fn test_set_negative() {
         let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
-        for i in 0 ..= 255 {
+        for i in 0..=255 {
             cpu.sr = i;
-            cpu.update_flags(SrUpdate {
-                n: Some(true),
-                ..SrUpdate::default()
-            }.result());
+            cpu.update_flags(
+                SrUpdate {
+                    n: Some(true),
+                    ..SrUpdate::default()
+                }
+                .result(),
+            );
             assert_eq!(cpu.sr, i | (1 << 7));
             assert_eq!(cpu.get_flag(Sr::N), true);
         }
@@ -155,12 +152,15 @@ mod test {
     #[test]
     fn test_reset_negative() {
         let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
-        for i in 0 ..= 255 {
+        for i in 0..=255 {
             cpu.sr = i;
-            cpu.update_flags(SrUpdate {
-                n: Some(false),
-                ..SrUpdate::default()
-            }.result());
+            cpu.update_flags(
+                SrUpdate {
+                    n: Some(false),
+                    ..SrUpdate::default()
+                }
+                .result(),
+            );
             assert_eq!(cpu.sr, i & 0b01111111);
             assert_eq!(cpu.get_flag(Sr::N), false);
         }
