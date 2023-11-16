@@ -68,7 +68,7 @@ impl nes_lib::Bus for MockBus {
     }
 }
 
-fn run_nes_6502_test_case(case: Nes6502TestCase) {
+fn run_nes_6502_test_case(case: &Nes6502TestCase, index: usize, num_cases: usize) {
     let mut bus = MockBus::new();
     let mut cpu = nes_lib::Cpu::new();
     initialize_nes_state(&mut cpu, &mut bus, &case.initial);
@@ -87,7 +87,7 @@ fn run_nes_6502_test_case(case: Nes6502TestCase) {
     };
 
     if let Err(err) = result {
-        eprintln!("Case '{}' failed:\n{:#?}", case.name, case);
+        eprintln!("Case {} of {} failed:\n{:#?}", index+1, num_cases, case);
         panic::resume_unwind(err)
     }
 }
@@ -135,8 +135,8 @@ seq!(N in 0..=255 {
         let data = fs::read_to_string(path).expect("Unable to read file");
         let test_cases: Vec<Nes6502TestCase> = serde_json::from_str(&data).expect("Unable to parse data");
 
-        for case in test_cases {
-            run_nes_6502_test_case(case);
+        for (i, case) in test_cases.iter().enumerate() {
+            run_nes_6502_test_case(case, i, test_cases.len());
         }
     }
 });

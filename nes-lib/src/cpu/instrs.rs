@@ -59,6 +59,9 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x0E => asl_absolute,
             0x1E => asl_absolutex,
 
+            // BCC
+            0x90 => bcc,
+
             0xEA => nop_implied,
             // Illegal NOPs
             0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xFA => nop_implied,
@@ -180,3 +183,21 @@ with_addressing_modes_addr!(asl, zeropage, AddrMode::ZeroPage);
 with_addressing_modes_addr!(asl, indexedzx, AddrMode::IndexedZX);
 with_addressing_modes_addr!(asl, absolute, AddrMode::Absolute);
 with_addressing_modes_addr!(asl, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+
+// Might be buggy, but passes the tom harte tests
+fn bcc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    let offset = cpu.read_from_pc(bus) as i8;
+    if !cpu.get_flag(Sr::C) {
+        cpu.prefetch(bus);
+        let [mut low, high] = cpu.pc.to_le_bytes();
+        low = low.wrapping_add_signed(offset);
+        let mid_pc = u16::from_le_bytes([low, high]);
+        let new_pc = cpu.pc.wrapping_add_signed(offset.into());
+    
+        if cpu.pc & 0xff00 != new_pc & 0xff00 {
+            bus.read(mid_pc);
+        }
+
+        cpu.pc = new_pc;
+    }
+}
