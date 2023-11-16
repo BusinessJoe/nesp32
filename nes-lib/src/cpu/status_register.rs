@@ -53,6 +53,7 @@ impl SrUpdate {
         }
     }
 
+    /// Sets N and Z flags.
     pub const fn num_flags(res: u8) -> Self {
         Self {
             z: Some(res == 0),
@@ -89,6 +90,14 @@ impl<B: Bus> Cpu<B> {
 
     pub fn get_flag(&self, flag: Sr) -> bool {
         (self.sr >> flag.index()) & 1 == 1
+    }
+
+    pub fn set_flag(&mut self, flag: Sr, state: bool) {
+        let mut status = self.sr & !(1 << flag.index());
+        if state {
+            status |= 1 << flag.index();
+        }
+        self.sr = status;
     }
 }
 

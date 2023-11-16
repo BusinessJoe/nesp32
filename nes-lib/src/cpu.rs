@@ -110,6 +110,16 @@ impl<B: Bus> Cpu<B> {
 
                 new_addr
             }
+            AddrMode::Indirect => {
+                let addr = u16::from_le_bytes([self.read_from_pc(bus), self.read_from_pc(bus)]);
+                // Wraps within a page
+                let inc_addr = if addr & 0xff == 0xff {
+                    addr & 0xff00
+                } else {
+                    addr + 1
+                };
+                u16::from_le_bytes([bus.read(addr), bus.read(inc_addr)])
+            }
             _ => todo!(),
         }
     }
@@ -126,6 +136,15 @@ impl<B: Bus> Cpu<B> {
         let addr = self.pc;
         self.pc = self.pc.wrapping_add(1);
         addr
+    }
+
+    fn stack_push(&mut self, bus: &mut B, val: u8) {
+        bus.write(0x100 + u16::from(self.sp), val);
+        self.sp = self.sp.wrapping_sub(1);
+    }
+
+    fn stack_peek(&self, bus: &mut B) -> u8 {
+        bus.read(0x100 + u16::from(self.sp))
     }
 }
 
