@@ -196,6 +196,79 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             // PHA
             0x48 => pha,
 
+            // PHP
+            0x08 => php,
+
+            // PLA
+            0x68 => pla,
+
+            // PLP
+            0x28 => plp,
+
+            // ROL
+            0x2A => rol_acc,
+            0x26 => rol_zeropage,
+            0x36 => rol_indexedzx,
+            0x2E => rol_absolute,
+            0x3E => rol_absolutex,
+
+            // ROR
+            0x6A => ror_acc,
+            0x66 => ror_zeropage,
+            0x76 => ror_indexedzx,
+            0x6E => ror_absolute,
+            0x7E => ror_absolutex,
+
+            // RTI
+            0x40 => rti,
+
+            // RTS
+            0x60 => rts,
+
+            // SBC
+            0xE9 => sbc_immediate,
+            0xE5 => sbc_zeropage,
+            0xF5 => sbc_indexedzx,
+            0xED => sbc_absolute,
+            0xFD => sbc_absolutex,
+            0xF9 => sbc_absolutey,
+            0xE1 => sbc_indirectx,
+            0xF1 => sbc_indirecty,
+
+            // Sets
+            0x38 => sec,
+            0xF8 => todo_op!("Set decimal flag"),
+            0x78 => sei,
+
+            // STA
+            0x85 => sta_zeropage,
+            0x95 => sta_indexedzx,
+            0x8D => sta_absolute,
+            0x9D => sta_absolutex,
+            0x99 => sta_absolutey,
+            0x81 => sta_indirectx,
+            0x91 => sta_indirecty,
+
+            // STX
+            0x86 => stx_zeropage,
+            0x96 => stx_indexedzy,
+            0x8E => stx_absolute,
+
+            // STY
+            0x84 => sty_zeropage,
+            0x94 => sty_indexedzx,
+            0x8C => sty_absolute,
+
+            // Transfers
+            0xAA => tax,
+            0xA8 => tay,
+            0xBA => tsx,
+            0x8A => txa,
+            0x9A => txs,
+            0x98 => tya,
+
+            /* Here be monsters */
+
             // Illegal NOPs
             0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xFA => nop_implied,
             0x80 | 0x82 | 0x89 | 0xC2 | 0xE2 => nop_immediate,
@@ -203,6 +276,49 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x14 | 0x34 | 0x54 | 0x74 | 0xD4 | 0xF4 => nop_indexedzx,
             0x0C => nop_absolute,
             0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => nop_absolutex,
+
+            // JAM
+            0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xB2 | 0xD2 | 0xF2 => jam,
+
+            // ALR
+            0x4B => alr,
+
+            // ANC
+            0x0B | 0x2B => anc,
+
+            // ANE
+            0x8B => todo_op!("Cursed ANE/XAA opcode"),
+            
+            // ARR
+            0x6B => arr,
+
+            // DCP
+            0xC7 => dcp_zeropage,
+            0xD7 => dcp_indexedzx,
+            0xCF => dcp_absolute,
+            0xDF => dcp_absolutex,
+            0xDB => dcp_absolutey,
+            0xC3 => dcp_indirectx,
+            0xD3 => dcp_indirecty,
+
+            // SLO
+            0x07 => slo_zeropage,
+            0x17 => slo_indexedzx,
+            0x0F => slo_absolute,
+            0x1F => slo_absolutex,
+            0x1B => slo_absolutey,
+            0x03 => slo_indirectx,
+            0x13 => slo_indirecty,
+
+            // ISC
+            0xE7 => isc_zeropage,
+            0xF7 => isc_indexedzx,
+            0xEF => isc_absolute,
+            0xFF => isc_absolutex,
+            0xFB => isc_absolutey,
+            0xE3 => isc_indirectx,
+            0xF3 => isc_indirecty,
+
             _ => panic_fp,
         };
         i += 1;
@@ -212,10 +328,12 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
 
 // Utility function for overflow flag
 fn add_overflows(a1: u8, a2: u8, res: u8) -> bool {
-    let sign_acc = (a1 & 0b1000_0000) != 0;
-    let sign_value = (a2 & 0b1000_0000) != 0;
-    let sign_result = (res & 0b1000_0000) != 0;
-    (sign_acc == sign_value) && (sign_acc != sign_result)
+    (a1 & a2) >> 7 == 1 && (a1 ^ res) >> 7 == 1
+}
+
+// Utility function for overflow flag
+fn sub_overflows(a1: u8, a2: u8, res: u8) -> bool {
+    (a1 ^ a2) >> 7 == 1 && (a1 ^ res) >> 7 == 1
 }
 
 /* OPS */
@@ -619,3 +737,369 @@ fn pha<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.prefetch(bus);
     cpu.stack_push(bus, cpu.a);
 }
+
+fn php<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    cpu.stack_push(bus, cpu.sr | 0b0011_0000);
+}
+
+fn pla<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    cpu.a = cpu.stack_pop(bus);
+    cpu.update_flags(SrUpdate::num_flags(cpu.a).result());
+}
+
+fn plp<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    cpu.sr = cpu.stack_pop(bus) & 0b1100_1111;
+}
+
+fn rol<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let arg = bus.read(addr);
+    let cin = cpu.get_flag(Sr::C);
+    let cout = arg >> 7 == 1;
+    let mut res = arg.wrapping_shl(1);
+    if cin {
+        res += 1
+    }
+    bus.write(addr, arg);
+    bus.write(addr, res);
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(res)
+        }
+        .result(),
+    );
+}
+
+fn rol_acc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    let cin = cpu.get_flag(Sr::C);
+    let cout = cpu.a >> 7 == 1;
+    cpu.a = cpu.a.wrapping_shl(1);
+    if cin {
+        cpu.a += 1;
+    }
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
+}
+
+with_addressing_mode_addr!(rol, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(rol, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(rol, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(rol, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+
+fn ror<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let arg = bus.read(addr);
+    let cin = cpu.get_flag(Sr::C);
+    let cout = arg & 1 == 1;
+    let mut res = arg >> 1;
+    if cin {
+        res |= 1 << 7;
+    }
+    bus.write(addr, arg);
+    bus.write(addr, res);
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(res)
+        }
+        .result(),
+    );
+}
+
+fn ror_acc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    let cin = cpu.get_flag(Sr::C);
+    let cout = cpu.a & 1 == 1;
+    cpu.a = cpu.a >> 1;
+    if cin {
+        cpu.a |= 1 << 7;
+    }
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
+}
+
+with_addressing_mode_addr!(ror, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(ror, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(ror, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(ror, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+
+fn rti<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    cpu.stack_peek(bus);
+    cpu.sr = cpu.stack_pop(bus) & 0b1100_1111 | 0b0010_0000;
+    let low = cpu.stack_pop(bus);
+    let high = cpu.stack_pop(bus);
+    cpu.pc = u16::from_le_bytes([low, high]);
+}
+
+fn rts<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.prefetch(bus);
+    cpu.stack_peek(bus);
+    let low = cpu.stack_pop(bus);
+    let high = cpu.stack_pop(bus);
+    cpu.pc = u16::from_le_bytes([low, high]);
+    cpu.prefetch(bus);
+    cpu.pc = cpu.pc.wrapping_add(1);
+}
+
+fn sbc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
+    let prev = cpu.a;
+    let cin = if cpu.get_flag(Sr::C) { 0 } else { 1 };
+
+    let (tmp, c1) = prev.overflowing_sub(arg);
+    let (res, c2) = tmp.overflowing_sub(cin);
+    let v = sub_overflows(prev, arg, res);
+
+    cpu.a = res;
+
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(!(c1 | c2)),
+            v: Some(v),
+            ..SrUpdate::num_flags(res)
+        }
+        .result(),
+    );
+}
+
+with_addressing_mode!(sbc, immediate, AddrMode::Immediate);
+with_addressing_mode!(sbc, zeropage, AddrMode::ZeroPage);
+with_addressing_mode!(sbc, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode!(sbc, absolute, AddrMode::Absolute);
+with_addressing_mode!(sbc, absolutex, AddrMode::AbsoluteX { force_cycle: false });
+with_addressing_mode!(sbc, absolutey, AddrMode::AbsoluteY { force_cycle: false });
+with_addressing_mode!(sbc, indirectx, AddrMode::IndirectX);
+with_addressing_mode!(sbc, indirecty, AddrMode::IndirectY);
+
+fn set<B: Bus>(cpu: &mut Cpu<B>, flag: Sr) {
+    cpu.set_flag(flag, true);
+}
+
+fn sec<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+    set(cpu, Sr::C);
+}
+
+fn sei<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+    set(cpu, Sr::I);
+}
+
+fn sta<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    bus.write(addr, cpu.a);
+}
+
+with_addressing_mode_addr!(sta, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(sta, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(sta, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(sta, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+with_addressing_mode_addr!(sta, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(sta, indirectx, AddrMode::IndirectX);
+with_addressing_mode_addr!(sta, indirecty, AddrMode::IndirectY);
+
+fn stx<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    bus.write(addr, cpu.x);
+}
+
+with_addressing_mode_addr!(stx, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(stx, indexedzy, AddrMode::IndexedZY);
+with_addressing_mode_addr!(stx, absolute, AddrMode::Absolute);
+
+fn sty<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    bus.write(addr, cpu.y);
+}
+
+with_addressing_mode_addr!(sty, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(sty, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(sty, absolute, AddrMode::Absolute);
+
+fn tax<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.x = cpu.a;
+    cpu.update_flags(SrUpdate::num_flags(cpu.x).result());
+    cpu.prefetch(bus);
+}
+
+fn tay<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.y = cpu.a;
+    cpu.update_flags(SrUpdate::num_flags(cpu.y).result());
+    cpu.prefetch(bus);
+}
+
+fn tsx<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.x = cpu.sp;
+    cpu.update_flags(SrUpdate::num_flags(cpu.x).result());
+    cpu.prefetch(bus);
+}
+
+fn txa<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.a = cpu.x;
+    cpu.update_flags(SrUpdate::num_flags(cpu.a).result());
+    cpu.prefetch(bus);
+}
+
+fn txs<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.sp = cpu.x;
+    cpu.update_flags(SrUpdate::num_flags(cpu.sp).result());
+    cpu.prefetch(bus);
+}
+
+fn tya<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    cpu.a = cpu.y;
+    cpu.update_flags(SrUpdate::num_flags(cpu.a).result());
+    cpu.prefetch(bus);
+}
+
+/* Here be monsters */
+
+fn jam<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+    cpu.jam(); 
+}
+
+fn alr<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    let arg = cpu.read_arg(bus, AddrMode::Immediate);
+    // AND
+    cpu.a &= arg;
+
+    // LSR
+    cpu.prefetch(bus);
+    let cout = cpu.a & 1 == 1;
+    cpu.a = cpu.a >> 1;
+    cpu.update_flags(
+        SrUpdate {
+            n: Some(false),
+            z: Some(cpu.a == 0),
+            c: Some(cout),
+            ..SrUpdate::default()
+        }
+        .result(),
+    );
+}
+
+fn anc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    let arg = cpu.read_arg(bus, AddrMode::Immediate);
+    // AND
+    cpu.a &= arg;
+
+    let cout = cpu.a >> 7 == 1;
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
+}
+
+fn arr<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    let arg = cpu.read_arg(bus, AddrMode::Immediate);
+    // AND
+    cpu.a &= arg;
+
+    // ROR
+    let cin = cpu.get_flag(Sr::C);
+    let cout = cpu.a & 1 == 1;
+    cpu.a = cpu.a >> 1;
+    if cin {
+        cpu.a |= 1 << 7;
+    }
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
+}
+
+fn dcp<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let val = bus.read(addr);
+    bus.write(addr, val);
+    let res = val.wrapping_sub(1);
+    bus.write(addr, res);
+
+    let (res, c) = cpu.a.overflowing_sub(res);
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(!c),
+            ..SrUpdate::num_flags(res)
+        }
+        .result(),
+    )
+}
+
+with_addressing_mode_addr!(dcp, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(dcp, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(dcp, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(dcp, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+with_addressing_mode_addr!(dcp, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(dcp, indirectx, AddrMode::IndirectX);
+with_addressing_mode_addr!(dcp, indirecty, AddrMode::IndirectY);
+
+fn isc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let val = bus.read(addr);
+    bus.write(addr, val);
+    let res = val.wrapping_add(1);
+    bus.write(addr, res);
+
+    let prev = cpu.a;
+    let cin = if cpu.get_flag(Sr::C) { 0 } else { 1 };
+
+    let (tmp, c1) = prev.overflowing_sub(res);
+    let (res2, c2) = tmp.overflowing_sub(cin);
+    let v = sub_overflows(prev, res, res2);
+
+    cpu.a = res2;
+
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(!(c1 | c2)),
+            v: Some(v),
+            ..SrUpdate::num_flags(res2)
+        }
+        .result(),
+    );
+}
+
+with_addressing_mode_addr!(isc, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(isc, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(isc, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(isc, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+with_addressing_mode_addr!(isc, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(isc, indirectx, AddrMode::IndirectX);
+with_addressing_mode_addr!(isc, indirecty, AddrMode::IndirectY);
+
+fn slo<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let arg = bus.read(addr);
+    let cout = arg >> 7 == 1;
+    let res = arg << 1;
+    bus.write(addr, arg);
+    bus.write(addr, res);
+
+    cpu.a = cpu.a | res;
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
+}
+
+with_addressing_mode_addr!(slo, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(slo, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(slo, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(slo, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+with_addressing_mode_addr!(slo, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(slo, indirectx, AddrMode::IndirectX);
+with_addressing_mode_addr!(slo, indirecty, AddrMode::IndirectY);

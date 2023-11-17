@@ -15,7 +15,8 @@ fn main() -> ! {
     let clocks = ClockControl::max(system.clock_control).freeze();
     let mut delay = Delay::new(&clocks);
 
-    let cart = nes_lib::cart::NoMapperCart::new(b"Cart Name");
+    let rom = include_bytes!("../nestest.nes");
+    let cart = nes_lib::cart::NoMapperCart::new(b"Cart Name", rom);
     let bus = nes_lib::NesBus::new(cart);
     let nes = nes_lib::Nes::new(bus);
 

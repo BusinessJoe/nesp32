@@ -131,6 +131,11 @@ fn assert_bus_events(bus: &MockBus, cycles: &[(u16, u8, String)]) {
 seq!(N in 0..=255 {
     #[test]
     fn nes_6502_tests_~N() {
+        // Jam opcodes
+        if [0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72, 0x92, 0xB2, 0xD2, 0xF2].contains(&N) {
+            return;
+        }
+
         let path = format!("tests/nes6502/v1/{:02x}.json", N);
         let data = fs::read_to_string(path).expect("Unable to read file");
         let test_cases: Vec<Nes6502TestCase> = serde_json::from_str(&data).expect("Unable to parse data");

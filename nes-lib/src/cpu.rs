@@ -15,6 +15,7 @@ pub struct Cpu<B: Bus> {
     pub sp: u8,
 
     lut: [InstrFp<B>; 256],
+    jammed: bool,
 }
 
 type InstrFp<B> = fn(cpu: &mut Cpu<B>, bus: &mut B);
@@ -39,7 +40,15 @@ impl<B: Bus> Cpu<B> {
         Self::default()
     }
 
+    pub fn jam(&mut self) {
+        self.jammed = true;
+    }
+
     pub fn tick(&mut self, bus: &mut B) {
+        if self.jammed {
+            return
+        }
+
         // Fetch opcode.
         let opcode = self.read_from_pc(bus);
 
@@ -146,6 +155,11 @@ impl<B: Bus> Cpu<B> {
     fn stack_peek(&self, bus: &mut B) -> u8 {
         bus.read(0x100 + u16::from(self.sp))
     }
+
+    fn stack_pop(&mut self, bus: &mut B) -> u8 {
+        self.sp = self.sp.wrapping_add(1);
+        bus.read(0x100 + u16::from(self.sp))
+    }
 }
 
 impl<B: Bus> Default for Cpu<B> {
@@ -158,6 +172,7 @@ impl<B: Bus> Default for Cpu<B> {
             sr: 0,
             sp: 0,
             lut: generate_lut(),
+            jammed: false,
         }
     }
 }

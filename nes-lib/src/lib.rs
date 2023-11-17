@@ -5,6 +5,7 @@ mod bus;
 pub mod cart;
 mod cpu;
 mod nes;
+mod ppu;
 
 pub use bus::Addr;
 pub use bus::Bus;
