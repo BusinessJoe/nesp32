@@ -13,4 +13,9 @@ impl<B: Bus> Nes<B> {
             bus,
         }
     }
+
+    pub fn tick(&mut self) {
+        self.cpu.tick(&mut self.bus);
+    }
 }
+

@@ -105,11 +105,20 @@ impl<B: Bus> Cpu<B> {
 mod test {
     use crate::cart::NoMapperCart;
     use crate::cpu::status_register::{Sr, SrUpdate};
-    use crate::{Cpu, NesBus};
+    use crate::{Cpu, NesBus, Bus};
+
+    struct MockBus;
+    impl Bus for MockBus {
+        fn read(&mut self, addr: crate::Addr) -> u8 {
+            0
+        }
+
+        fn write(&mut self, addr: crate::Addr, value: u8) { }
+    }
 
     #[test]
     fn test_set_carry() {
-        let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
+        let mut cpu: Cpu<MockBus> = Cpu::new();
         for i in 0..=255 {
             cpu.sr = i;
             cpu.update_flags(
@@ -126,7 +135,7 @@ mod test {
 
     #[test]
     fn test_reset_carry() {
-        let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
+        let mut cpu: Cpu<MockBus> = Cpu::new();
         for i in 0..=255 {
             cpu.sr = i;
             cpu.update_flags(
@@ -143,7 +152,7 @@ mod test {
 
     #[test]
     fn test_set_negative() {
-        let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
+        let mut cpu: Cpu<MockBus> = Cpu::new();
         for i in 0..=255 {
             cpu.sr = i;
             cpu.update_flags(
@@ -160,7 +169,7 @@ mod test {
 
     #[test]
     fn test_reset_negative() {
-        let mut cpu: Cpu<NesBus<NoMapperCart>> = Cpu::new();
+        let mut cpu: Cpu<MockBus> = Cpu::new();
         for i in 0..=255 {
             cpu.sr = i;
             cpu.update_flags(

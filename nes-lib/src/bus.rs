@@ -1,6 +1,8 @@
 use core::fmt::Debug;
 use core::write;
 
+use crate::ppu::{Screen, Ppu};
+
 use super::cart::Cart;
 
 pub type Addr = u16;
@@ -10,25 +12,25 @@ pub trait Bus {
     fn write(&mut self, addr: Addr, value: u8);
 }
 
-pub struct NesBus<C: Cart> {
+pub struct NesBus<C: Cart, S: Screen> {
     iram: [u8; 0x800],
-    ppu: [u8; 0x8],     // will be replaced by PPU
     apu_io: [u8; 0x18], // will be replaced by APU/IO
     cart: C,
+    ppu: Ppu<S>,
 }
 
-impl<C: Cart> NesBus<C> {
-    pub fn new(cart: C) -> Self {
+impl<C: Cart, S: Screen> NesBus<C, S> {
+    pub fn new(cart: C, ppu: Ppu<S>) -> Self {
         Self {
             iram: [0; 0x800],
-            ppu: [0; 0x8],
             apu_io: [0; 0x18],
             cart,
+            ppu,
         }
     }
 }
 
-impl<C: Cart> Bus for NesBus<C> {
+impl<C: Cart, S: Screen> Bus for NesBus<C, S> {
     fn read(&mut self, addr: Addr) -> u8 {
         0
     }
@@ -36,7 +38,7 @@ impl<C: Cart> Bus for NesBus<C> {
     fn write(&mut self, addr: Addr, value: u8) {}
 }
 
-impl<C: Cart> Debug for NesBus<C> {
+impl<C: Cart, S: Screen> Debug for NesBus<C, S> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,

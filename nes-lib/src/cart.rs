@@ -23,6 +23,9 @@ impl NoMapperCart {
         let mut name = [0; MAX_CART_NAME_LENGTH];
         name[0..name_slice.len()].copy_from_slice(name_slice);
         let mut bytes = [0; 0xbfe0];
+        if rom.len() > bytes.len() - 0x8000 {
+            panic!("rom has {:#x} bytes", rom.len());
+        }
         bytes[0x8000..0x8000 + rom.len()].copy_from_slice(rom);
         Self { name, bytes }
     }

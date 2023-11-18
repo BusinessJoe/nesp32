@@ -80,7 +80,7 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x2C => bit_absolute,
 
             // BRK
-            0x00 => todo_op!("Too lazy to do break"),
+            0x00 => brk,
 
             // Clears
             0x18 => clc,
@@ -496,7 +496,9 @@ with_addressing_mode!(bit, zeropage, AddrMode::ZeroPage);
 with_addressing_mode!(bit, absolute, AddrMode::Absolute);
 
 // Not gonna deal with this one yet
-fn brk() {}
+fn brk<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    todo!("lazy")
+}
 
 fn clear<B: Bus>(cpu: &mut Cpu<B>, flag: Sr) {
     cpu.set_flag(flag, false);
