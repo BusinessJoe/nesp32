@@ -169,8 +169,8 @@ impl<B: Bus> Default for Cpu<B> {
             a: 0,
             x: 0,
             y: 0,
-            sr: 0,
-            sp: 0,
+            sr: 0x24,
+            sp: 0xfd,
             lut: generate_lut(),
             jammed: false,
         }

@@ -74,13 +74,10 @@ fn run_nes_6502_test_case(case: &Nes6502TestCase, index: usize, num_cases: usize
     initialize_nes_state(&mut cpu, &mut bus, &case.initial);
 
     cpu.tick(&mut bus);
-    dbg!(cpu.a);
 
     let result = {
-        dbg!(cpu.a);
         let case = case.clone();
         panic::catch_unwind(move || {
-            dbg!(cpu.a);
             assert_nes_state(&cpu, &bus, &case.r#final);
             assert_bus_events(&bus, &case.cycles);
         })

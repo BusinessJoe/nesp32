@@ -103,17 +103,16 @@ impl<B: Bus> Cpu<B> {
 
 #[cfg(test)]
 mod test {
-    use crate::cart::NoMapperCart;
     use crate::cpu::status_register::{Sr, SrUpdate};
-    use crate::{Cpu, NesBus, Bus};
+    use crate::{Cpu, Bus};
 
     struct MockBus;
     impl Bus for MockBus {
-        fn read(&mut self, addr: crate::Addr) -> u8 {
+        fn read(&mut self, _: crate::Addr) -> u8 {
             0
         }
 
-        fn write(&mut self, addr: crate::Addr, value: u8) { }
+        fn write(&mut self, _: crate::Addr, _: u8) { }
     }
 
     #[test]

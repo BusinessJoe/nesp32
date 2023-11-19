@@ -84,7 +84,7 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
 
             // Clears
             0x18 => clc,
-            0xD8 => todo_op!("Clear decimal mode not supported"),
+            0xD8 => cld,
             0x58 => cli,
             0xB8 => clv,
 
@@ -237,7 +237,7 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
 
             // Sets
             0x38 => sec,
-            0xF8 => todo_op!("Set decimal flag"),
+            0xF8 => sed,
             0x78 => sei,
 
             // STA
@@ -339,7 +339,7 @@ fn sub_overflows(a1: u8, a2: u8, res: u8) -> bool {
 /* OPS */
 
 fn panic_fp<B: Bus>(_: &mut Cpu<B>, _: &mut B) {
-    panic!()
+    //panic!()
 }
 
 fn nop_implied<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
@@ -497,7 +497,18 @@ with_addressing_mode!(bit, absolute, AddrMode::Absolute);
 
 // Not gonna deal with this one yet
 fn brk<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
-    todo!("lazy")
+    cpu.read_from_pc(bus);
+    let [low, high] = cpu.pc.to_le_bytes();
+    cpu.stack_push(bus, high);
+    cpu.stack_push(bus, low);
+    cpu.stack_push(bus, cpu.sr | 0b10000);
+
+    let low = bus.read(0xfffe);
+    let high = bus.read(0xffff);
+    cpu.pc = u16::from_le_bytes([low, high]);
+
+    // Set interrupt flag
+    cpu.sr |= 0b100;
 }
 
 fn clear<B: Bus>(cpu: &mut Cpu<B>, flag: Sr) {
@@ -506,6 +517,10 @@ fn clear<B: Bus>(cpu: &mut Cpu<B>, flag: Sr) {
 
 fn clc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
     clear(cpu, Sr::C);
+}
+
+fn cld<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+    clear(cpu, Sr::D);
 }
 
 fn cli<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
@@ -892,6 +907,10 @@ fn set<B: Bus>(cpu: &mut Cpu<B>, flag: Sr) {
 
 fn sec<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
     set(cpu, Sr::C);
+}
+
+fn sed<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+    set(cpu, Sr::D);
 }
 
 fn sei<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
