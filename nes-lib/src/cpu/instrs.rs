@@ -301,6 +301,57 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0xC3 => dcp_indirectx,
             0xD3 => dcp_indirecty,
 
+            // ISC
+            0xE7 => isc_zeropage,
+            0xF7 => isc_indexedzx,
+            0xEF => isc_absolute,
+            0xFF => isc_absolutex,
+            0xFB => isc_absolutey,
+            0xE3 => isc_indirectx,
+            0xF3 => isc_indirecty,
+
+            // LAS
+            0xBB => las_absolutey,
+
+            // LAX
+            0xA7 => lax_zeropage,
+            0xB7 => lax_indexedzy,
+            0xAF => lax_absolute,
+            0xBF => lax_absolutey,
+            0xA3 => lax_indirectx,
+            0xB3 => lax_indirecty,
+
+            // RLA
+            0x27 => rla_zeropage,
+            0x37 => rla_indexedzx,
+            0x2F => rla_absolute,
+            0x3F => rla_absolutex,
+            0x3B => rla_absolutey,
+            0x23 => rla_indirectx,
+            0x33 => rla_indirecty,
+
+            // RRA
+            0x67 => rra_zeropage,
+            0x77 => rra_indexedzx,
+            0x6F => rra_absolute,
+            0x7F => rra_absolutex,
+            0x7B => rra_absolutey,
+            0x63 => rra_indirectx,
+            0x73 => rra_indirecty,
+
+            // SAX
+            0x87 => sax_zeropage,
+            0x97 => sax_indexedzy,
+            0x8F => sax_absolute,
+            0x83 => sax_indirectx,
+
+            // SBC (illegal)
+            0xEB => sbc_immediate,
+
+            // SHA
+            0x9F => sha_absolutey,
+            0x93 => sha_indirecty,
+
             // SLO
             0x07 => slo_zeropage,
             0x17 => slo_indexedzx,
@@ -310,14 +361,14 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x03 => slo_indirectx,
             0x13 => slo_indirecty,
 
-            // ISC
-            0xE7 => isc_zeropage,
-            0xF7 => isc_indexedzx,
-            0xEF => isc_absolute,
-            0xFF => isc_absolutex,
-            0xFB => isc_absolutey,
-            0xE3 => isc_indirectx,
-            0xF3 => isc_indirecty,
+            // SRE
+            0x47 => sre_zeropage,
+            0x57 => sre_indexedzx,
+            0x4F => sre_absolute,
+            0x5F => sre_absolutex,
+            0x5B => sre_absolutey,
+            0x43 => sre_indirectx,
+            0x53 => sre_indirecty,
 
             _ => panic_fp,
         };
@@ -356,19 +407,19 @@ with_addressing_mode!(nop, absolutex, AddrMode::AbsoluteX { force_cycle: false }
 
 fn adc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
     let prev = cpu.a;
-    let cin = if cpu.get_flag(Sr::C) { 1 } else { 0 };
+    let cin: u16 = if cpu.get_flag(Sr::C) { 1 } else { 0 };
+    
+    let t: u16 = u16::from(prev) + u16::from(arg) + cin;
 
-    let (tmp, c1) = prev.overflowing_add(arg);
-    let (res, c2) = tmp.overflowing_add(cin);
-    let v = add_overflows(prev, arg, res);
+    let v = (prev ^ arg) >> 7 == 0 && (prev ^ (t as u8)) >> 7 == 1;
 
-    cpu.a = res;
+    cpu.a = t as u8;
 
     cpu.update_flags(
         SrUpdate {
-            c: Some(c1 | c2),
+            c: Some(t >> 8 == 1),
             v: Some(v),
-            ..SrUpdate::num_flags(res)
+            ..SrUpdate::num_flags(cpu.a)
         }
         .result(),
     );
@@ -515,20 +566,24 @@ fn clear<B: Bus>(cpu: &mut Cpu<B>, flag: Sr) {
     cpu.set_flag(flag, false);
 }
 
-fn clc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+fn clc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     clear(cpu, Sr::C);
+    cpu.prefetch(bus);
 }
 
-fn cld<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+fn cld<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     clear(cpu, Sr::D);
+    cpu.prefetch(bus);
 }
 
-fn cli<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+fn cli<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     clear(cpu, Sr::I);
+    cpu.prefetch(bus);
 }
 
-fn clv<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+fn clv<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     clear(cpu, Sr::V);
+    cpu.prefetch(bus);
 }
 
 fn cmp<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
@@ -603,8 +658,8 @@ fn dex<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
 
 fn dey<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.y = cpu.y.wrapping_sub(1);
-    cpu.update_flags(SrUpdate::num_flags(cpu.y).result());
     cpu.prefetch(bus);
+    cpu.update_flags(SrUpdate::num_flags(cpu.y).result());
 }
 
 fn eor<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
@@ -762,13 +817,15 @@ fn php<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
 
 fn pla<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.prefetch(bus);
+    cpu.stack_peek(bus);
     cpu.a = cpu.stack_pop(bus);
     cpu.update_flags(SrUpdate::num_flags(cpu.a).result());
 }
 
 fn plp<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.prefetch(bus);
-    cpu.sr = cpu.stack_pop(bus) & 0b1100_1111;
+    cpu.stack_peek(bus);
+    cpu.sr = cpu.stack_pop(bus) & 0xef | 0x20
 }
 
 fn rol<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
@@ -905,16 +962,19 @@ fn set<B: Bus>(cpu: &mut Cpu<B>, flag: Sr) {
     cpu.set_flag(flag, true);
 }
 
-fn sec<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+fn sec<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     set(cpu, Sr::C);
+    cpu.prefetch(bus);
 }
 
-fn sed<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+fn sed<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     set(cpu, Sr::D);
+    cpu.prefetch(bus);
 }
 
-fn sei<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
+fn sei<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     set(cpu, Sr::I);
+    cpu.prefetch(bus);
 }
 
 fn sta<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
@@ -971,7 +1031,6 @@ fn txa<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
 
 fn txs<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.sp = cpu.x;
-    cpu.update_flags(SrUpdate::num_flags(cpu.sp).result());
     cpu.prefetch(bus);
 }
 
@@ -993,7 +1052,6 @@ fn alr<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.a &= arg;
 
     // LSR
-    cpu.prefetch(bus);
     let cout = cpu.a & 1 == 1;
     cpu.a = cpu.a >> 1;
     cpu.update_flags(
@@ -1029,14 +1087,18 @@ fn arr<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
 
     // ROR
     let cin = cpu.get_flag(Sr::C);
-    let cout = cpu.a & 1 == 1;
     cpu.a = cpu.a >> 1;
     if cin {
         cpu.a |= 1 << 7;
     }
+
+    let c = cpu.a >> 6 & 1 == 1;
+    let v = (cpu.a >> 6 & 1 == 1) != (cpu.a >> 5 & 1 == 1);
+
     cpu.update_flags(
         SrUpdate {
-            c: Some(cout),
+            v: Some(v),
+            c: Some(c),
             ..SrUpdate::num_flags(cpu.a)
         }
         .result(),
@@ -1100,6 +1162,104 @@ with_addressing_mode_addr!(isc, absolutey, AddrMode::AbsoluteY { force_cycle: tr
 with_addressing_mode_addr!(isc, indirectx, AddrMode::IndirectX);
 with_addressing_mode_addr!(isc, indirecty, AddrMode::IndirectY);
 
+fn las<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let m = bus.read(addr);
+    let t = m & cpu.sp;
+
+    cpu.a = t;
+    cpu.x = t;
+    cpu.sp = t;
+
+    cpu.update_flags(SrUpdate::num_flags(t).result());
+}
+
+with_addressing_mode_addr!(las, absolutey, AddrMode::AbsoluteY { force_cycle: false });
+
+fn lax<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
+    cpu.a = arg;
+    cpu.x = arg;
+    
+    cpu.update_flags(SrUpdate::num_flags(arg).result());
+}
+
+with_addressing_mode!(lax, zeropage, AddrMode::ZeroPage);
+with_addressing_mode!(lax, indexedzy, AddrMode::IndexedZY);
+with_addressing_mode!(lax, absolute, AddrMode::Absolute);
+with_addressing_mode!(lax, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode!(lax, indirectx, AddrMode::IndirectX);
+with_addressing_mode!(lax, indirecty, AddrMode::IndirectY);
+
+fn rla<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let arg = bus.read(addr);
+    let cin = cpu.get_flag(Sr::C);
+    let cout = arg >> 7 == 1;
+    let mut res = arg.wrapping_shl(1);
+    if cin {
+        res += 1
+    }
+    bus.write(addr, arg);
+    bus.write(addr, res);
+
+    cpu.a = cpu.a & res;
+
+    cpu.update_flags(SrUpdate {
+        c: Some(cout),
+        ..SrUpdate::num_flags(cpu.a)
+    }.result());
+}
+
+with_addressing_mode_addr!(rla, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(rla, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(rla, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(rla, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+with_addressing_mode_addr!(rla, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(rla, indirectx, AddrMode::IndirectX);
+with_addressing_mode_addr!(rla, indirecty, AddrMode::IndirectY);
+
+fn rra<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let arg = bus.read(addr);
+    let cin = cpu.get_flag(Sr::C);
+    let cout = arg & 1 == 1;
+    let mut res = arg >> 1;
+    if cin {
+        res |= 1 << 7;
+    }
+
+    cpu.set_flag(Sr::C, cout);
+    //bus.read(addr);
+    bus.write(addr, arg);
+    bus.write(addr, res);
+
+    adc(cpu, bus, res);
+}
+
+with_addressing_mode_addr!(rra, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(rra, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(rra, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(rra, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+with_addressing_mode_addr!(rra, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(rra, indirectx, AddrMode::IndirectX);
+with_addressing_mode_addr!(rra, indirecty, AddrMode::IndirectY);
+
+fn sax<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let t = cpu.a & cpu.x;
+    bus.write(addr, t);
+}
+
+with_addressing_mode_addr!(sax, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(sax, indexedzy, AddrMode::IndexedZY);
+with_addressing_mode_addr!(sax, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(sax, indirectx, AddrMode::IndirectX);
+
+fn sha<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let high = (addr >> 8) as u8;
+    let t = cpu.a & cpu.x & high.wrapping_add(1);
+    bus.write(addr, t);
+}
+
+with_addressing_mode_addr!(sha, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(sha, indirecty, AddrMode::IndirectY);
+
 fn slo<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
     let arg = bus.read(addr);
     let cout = arg >> 7 == 1;
@@ -1124,3 +1284,29 @@ with_addressing_mode_addr!(slo, absolutex, AddrMode::AbsoluteX { force_cycle: tr
 with_addressing_mode_addr!(slo, absolutey, AddrMode::AbsoluteY { force_cycle: true });
 with_addressing_mode_addr!(slo, indirectx, AddrMode::IndirectX);
 with_addressing_mode_addr!(slo, indirecty, AddrMode::IndirectY);
+
+fn sre<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
+    let arg = bus.read(addr);
+    let cout = arg & 1 == 1;
+    let res = arg >> 1;
+    bus.write(addr, arg);
+    bus.write(addr, res);
+
+    cpu.a = cpu.a ^ res;
+
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
+}
+
+with_addressing_mode_addr!(sre, zeropage, AddrMode::ZeroPage);
+with_addressing_mode_addr!(sre, indexedzx, AddrMode::IndexedZX);
+with_addressing_mode_addr!(sre, absolute, AddrMode::Absolute);
+with_addressing_mode_addr!(sre, absolutex, AddrMode::AbsoluteX { force_cycle: true });
+with_addressing_mode_addr!(sre, absolutey, AddrMode::AbsoluteY { force_cycle: true });
+with_addressing_mode_addr!(sre, indirectx, AddrMode::IndirectX);
+with_addressing_mode_addr!(sre, indirecty, AddrMode::IndirectY);

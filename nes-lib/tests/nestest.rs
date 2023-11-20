@@ -74,7 +74,7 @@ struct LogEvent {
 }
 
 fn parse_log_line(line: &str) -> LogEvent {
-    let re = Regex::new(r"^(?<pc>[A-F0-9]{4})  (?<op1>[A-F0-9]{2}) (?<op2>[ A-F0-9]{2}) (?<op3>[ A-F0-9]{2})  (.{30})  A:(?<a>[A-F0-9]{2}) X:(?<x>[A-F0-9]{2}) Y:(?<y>[A-F0-9]{2}) P:(?<sr>[A-F0-9]{2}) SP:(?<sp>[A-F0-9]{2}) PPU:(.{7}) CYC:(\d+)$").unwrap();
+    let re = Regex::new(r"^(?<pc>[A-F0-9]{4})  (?<op1>[A-F0-9]{2}) (?<op2>[ A-F0-9]{2}) (?<op3>[ A-F0-9]{2}) (.{32}) A:(?<a>[A-F0-9]{2}) X:(?<x>[A-F0-9]{2}) Y:(?<y>[A-F0-9]{2}) P:(?<sr>[A-F0-9]{2}) SP:(?<sp>[A-F0-9]{2}) PPU:(.{7}) CYC:(\d+)$").unwrap();
     let caps = re.captures(line).unwrap();
 
     LogEvent {

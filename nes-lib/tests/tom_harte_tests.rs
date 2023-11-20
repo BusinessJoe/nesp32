@@ -125,11 +125,16 @@ fn assert_bus_events(bus: &MockBus, cycles: &[(u16, u8, String)]) {
 }
 
 // Generate test fns for all 256 opcodes
-seq!(N in 0..=255 {
+seq!(N in 0x00..=0xff {
     #[test]
     fn nes_6502_tests_~N() {
         // Jam opcodes
         if [0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72, 0x92, 0xB2, 0xD2, 0xF2].contains(&N) {
+            return;
+        }
+
+        // Unstable opcodes
+        if [0xAB, 0x9F, 0x93, 0x9E, 0x9C, 0x9B].contains(&N) {
             return;
         }
 
