@@ -378,11 +378,6 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
 }
 
 // Utility function for overflow flag
-fn add_overflows(a1: u8, a2: u8, res: u8) -> bool {
-    (a1 & a2) >> 7 == 1 && (a1 ^ res) >> 7 == 1
-}
-
-// Utility function for overflow flag
 fn sub_overflows(a1: u8, a2: u8, res: u8) -> bool {
     (a1 ^ a2) >> 7 == 1 && (a1 ^ res) >> 7 == 1
 }
@@ -929,24 +924,8 @@ fn rts<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
     cpu.pc = cpu.pc.wrapping_add(1);
 }
 
-fn sbc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
-    let prev = cpu.a;
-    let cin = if cpu.get_flag(Sr::C) { 0 } else { 1 };
-
-    let (tmp, c1) = prev.overflowing_sub(arg);
-    let (res, c2) = tmp.overflowing_sub(cin);
-    let v = sub_overflows(prev, arg, res);
-
-    cpu.a = res;
-
-    cpu.update_flags(
-        SrUpdate {
-            c: Some(!(c1 | c2)),
-            v: Some(v),
-            ..SrUpdate::num_flags(res)
-        }
-        .result(),
-    );
+fn sbc<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, arg: u8) {
+    adc(cpu, bus, !arg);
 }
 
 with_addressing_mode!(sbc, immediate, AddrMode::Immediate);
