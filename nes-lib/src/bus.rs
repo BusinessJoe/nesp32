@@ -38,13 +38,11 @@ impl<C: Cart, S: Screen> NesBus<C, S> {
 
 #[cfg(feature = "debug")]
 impl<C: Cart, S: Screen> NesBus<C, S> {
-    pub fn on_read(&mut self, callback: fn (Addr))
-    {
+    pub fn on_read(&mut self, callback: fn(Addr)) {
         self.on_read_cb = callback;
     }
 
-    pub fn on_write(&mut self, callback: fn (Addr, u8))
-    {
+    pub fn on_write(&mut self, callback: fn(Addr, u8)) {
         self.on_write_cb = callback;
     }
 }

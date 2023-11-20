@@ -13,7 +13,7 @@ pub struct INesHeader {
     pub chr_rom_size: usize,
 
     pub mapper_num: u8,
-    
+
     pub has_trainer: bool,
 }
 
@@ -65,4 +65,3 @@ impl FileHeader {
         }
     }
 }
-

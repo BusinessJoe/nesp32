@@ -1,13 +1,13 @@
 #![no_std]
 #![feature(const_mut_refs)]
 
-mod nes;
-mod cpu;
 mod bus;
-mod ppu;
 pub mod cart;
+mod cpu;
+mod nes;
+mod ppu;
 
-pub use nes::Nes;
+pub use bus::{Addr, Bus, NesBus};
 pub use cpu::Cpu;
-pub use bus::{Bus, NesBus, Addr};
-pub use ppu::{Ppu, Screen, Color};
+pub use nes::Nes;
+pub use ppu::{Color, Ppu, Screen};

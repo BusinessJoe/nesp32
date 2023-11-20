@@ -1,10 +1,10 @@
 use nes_lib::{
     cart::{header::FileHeader, mapper::INesMapper, DecodeError},
-    Bus, Nes, NesBus, Ppu, Screen,
+    Nes, NesBus, Ppu, Screen,
 };
 
-use regex::Regex;
 use pretty_assertions::assert_eq;
+use regex::Regex;
 
 struct MockScreen;
 

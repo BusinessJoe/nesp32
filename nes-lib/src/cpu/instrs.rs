@@ -113,7 +113,7 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0xD6 => dec_indexedzx,
             0xCE => dec_absolute,
             0xDE => dec_absolutex,
-            
+
             // DEX
             0xCA => dex,
 
@@ -268,7 +268,6 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x98 => tya,
 
             /* Here be monsters */
-
             // Illegal NOPs
             0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xFA => nop_implied,
             0x80 | 0x82 | 0x89 | 0xC2 | 0xE2 => nop_immediate,
@@ -278,7 +277,9 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => nop_absolutex,
 
             // JAM
-            0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xB2 | 0xD2 | 0xF2 => jam,
+            0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xB2 | 0xD2 | 0xF2 => {
+                jam
+            }
 
             // ALR
             0x4B => alr,
@@ -288,7 +289,7 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
 
             // ANE
             0x8B => todo_op!("Cursed ANE/XAA opcode"),
-            
+
             // ARR
             0x6B => arr,
 
@@ -403,7 +404,7 @@ with_addressing_mode!(nop, absolutex, AddrMode::AbsoluteX { force_cycle: false }
 fn adc<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
     let prev = cpu.a;
     let cin: u16 = if cpu.get_flag(Sr::C) { 1 } else { 0 };
-    
+
     let t: u16 = u16::from(prev) + u16::from(arg) + cin;
 
     let v = (prev ^ arg) >> 7 == 0 && (prev ^ (t as u8)) >> 7 == 1;
@@ -1022,7 +1023,7 @@ fn tya<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
 /* Here be monsters */
 
 fn jam<B: Bus>(cpu: &mut Cpu<B>, _: &mut B) {
-    cpu.jam(); 
+    cpu.jam();
 }
 
 fn alr<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
@@ -1157,7 +1158,7 @@ with_addressing_mode_addr!(las, absolutey, AddrMode::AbsoluteY { force_cycle: fa
 fn lax<B: Bus>(cpu: &mut Cpu<B>, _: &mut B, arg: u8) {
     cpu.a = arg;
     cpu.x = arg;
-    
+
     cpu.update_flags(SrUpdate::num_flags(arg).result());
 }
 
@@ -1181,10 +1182,13 @@ fn rla<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
 
     cpu.a = cpu.a & res;
 
-    cpu.update_flags(SrUpdate {
-        c: Some(cout),
-        ..SrUpdate::num_flags(cpu.a)
-    }.result());
+    cpu.update_flags(
+        SrUpdate {
+            c: Some(cout),
+            ..SrUpdate::num_flags(cpu.a)
+        }
+        .result(),
+    );
 }
 
 with_addressing_mode_addr!(rla, zeropage, AddrMode::ZeroPage);

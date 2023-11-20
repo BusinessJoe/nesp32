@@ -84,7 +84,7 @@ fn run_nes_6502_test_case(case: &Nes6502TestCase, index: usize, num_cases: usize
     };
 
     if let Err(err) = result {
-        eprintln!("Case {} of {} failed:\n{:#?}", index+1, num_cases, case);
+        eprintln!("Case {} of {} failed:\n{:#?}", index + 1, num_cases, case);
         panic::resume_unwind(err)
     }
 }

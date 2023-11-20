@@ -46,7 +46,7 @@ impl<B: Bus> Cpu<B> {
 
     pub fn tick(&mut self, bus: &mut B) {
         if self.jammed {
-            return
+            return;
         }
 
         // Fetch opcode.

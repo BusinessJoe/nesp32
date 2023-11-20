@@ -104,7 +104,7 @@ impl<B: Bus> Cpu<B> {
 #[cfg(test)]
 mod test {
     use crate::cpu::status_register::{Sr, SrUpdate};
-    use crate::{Cpu, Bus};
+    use crate::{Bus, Cpu};
 
     struct MockBus;
     impl Bus for MockBus {
@@ -112,7 +112,7 @@ mod test {
             0
         }
 
-        fn write(&mut self, _: crate::Addr, _: u8) { }
+        fn write(&mut self, _: crate::Addr, _: u8) {}
     }
 
     #[test]

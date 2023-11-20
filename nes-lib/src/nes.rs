@@ -18,4 +18,3 @@ impl<B: Bus> Nes<B> {
         self.cpu.tick(&mut self.bus);
     }
 }
-
