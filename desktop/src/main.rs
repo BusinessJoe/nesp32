@@ -1,4 +1,4 @@
-use nes_lib;
+use nes_lib::{self, cart::{header::FileHeader, mapper::INesMapper, DecodeError}, NesBus};
 
 struct DesktopScreen {
 
@@ -16,15 +16,26 @@ impl nes_lib::Screen for DesktopScreen {
     }
 }
 
-fn main() {
-    let rom = include_bytes!("../nestest.nes");
-    let cart = nes_lib::cart::NoMapperCart::new(b"Cart Name", rom);
+fn main() -> Result<(), DecodeError> {
+    let rom_bytes = include_bytes!("../nestest.nes");
+    let header = FileHeader::try_decode(&rom_bytes[..16])?;
+    let cart = match header {
+        FileHeader::INes(header) => INesMapper::try_decode(&header, &rom_bytes[16..])?,
+        FileHeader::Nes2(_) => return Err(DecodeError),
+    };
 
     let screen = DesktopScreen::new();
     let ppu = nes_lib::Ppu::new(screen);
 
-    let bus = nes_lib::NesBus::new(cart, ppu);
+    let mut bus = NesBus::new(cart, ppu);
+    bus.on_write(|addr, val| {
+        println!("write addr: {:x} val: {:x}", addr, val);
+    });
+
     let mut nes = nes_lib::Nes::new(bus);
+    nes.cpu.pc = 0xc000;
+
+    println!("PC starting at {:X}", nes.cpu.pc);
 
     loop {
         nes.tick();

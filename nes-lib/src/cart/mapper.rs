@@ -84,6 +84,7 @@ impl Cart for NROM {
     fn read(&mut self, address: Addr) -> u8 {
         let addr = usize::from(address);
         match address {
+            0x4020..=0x5fff => 0,
             0x6000..=0x7fff => self.prg_ram[addr - 0x6000],
             0x8000..=0xbfff => self.prg_rom[addr - 0x8000],
             0xc000..=0xffff => {
@@ -101,6 +102,7 @@ impl Cart for NROM {
     fn write(&mut self, address: Addr, val: u8) {
         let addr = usize::from(address);
         match address {
+            0x4020..=0x5fff => {},
             0x6000..=0x7fff => self.prg_ram[addr - 0x6000] = val,
             0x8000..=0xbfff => {}
             0xc000..=0xffff => {}

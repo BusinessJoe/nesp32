@@ -113,6 +113,10 @@ mod test {
         }
 
         fn write(&mut self, _: crate::Addr, _: u8) {}
+
+        fn catch_up(&mut self, _: u128) {
+            unimplemented!()
+        }
     }
 
     #[test]

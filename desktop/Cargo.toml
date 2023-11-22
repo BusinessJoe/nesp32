@@ -6,7 +6,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-nes-lib = { path = "../nes-lib" }
+nes-lib = { path = "../nes-lib", features = ["debug"] }
 pixels = "0.13.0"
 winit = "0.28"
 winit_input_helper = "0.14"

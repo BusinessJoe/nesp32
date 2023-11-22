@@ -14,6 +14,7 @@ pub struct Cpu<B: Bus> {
     pub sr: u8,
     pub sp: u8,
 
+    time: u128,
     lut: [InstrFp<B>; 256],
     jammed: bool,
 }
@@ -43,10 +44,18 @@ impl<B: Bus> Cpu<B> {
     pub fn jam(&mut self) {
         self.jammed = true;
     }
+    
+    pub fn catch_up(&mut self, time: u128, bus: &mut B) {
+        let elapsed = time - self.time;
+        self.time = time;
+        for _ in 0 .. elapsed {
+            self.tick(bus);
+        }
+    }
 
     pub fn tick(&mut self, bus: &mut B) {
         if self.jammed {
-            return;
+            panic!();
         }
 
         // Fetch opcode.
@@ -171,6 +180,7 @@ impl<B: Bus> Default for Cpu<B> {
             y: 0,
             sr: 0x24,
             sp: 0xfd,
+            time: 0,
             lut: generate_lut(),
             jammed: false,
         }

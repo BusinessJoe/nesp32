@@ -1,6 +1,6 @@
 use nes_lib::{
     cart::{header::FileHeader, mapper::INesMapper, DecodeError},
-    Nes, NesBus, Ppu, Screen,
+    Nes, NesBus, Ppu, Screen, Color,
 };
 
 use pretty_assertions::assert_eq;
@@ -15,7 +15,7 @@ impl MockScreen {
 }
 
 impl Screen for MockScreen {
-    fn put_pixel(&mut self, _: u16, _: u16, _: nes_lib::Color) {}
+    fn put_pixel(&mut self, _: u16, _: u16, _: Color) { }
 }
 
 #[cfg_attr(not(feature = "debug"), ignore)]
@@ -33,20 +33,13 @@ fn nestest() -> Result<(), DecodeError> {
         FileHeader::Nes2(_) => return Err(DecodeError),
     };
 
-    let mut bus = NesBus::new(cart, ppu);
-    bus.on_write(|addr, val| {
-        if addr == 0x02 || addr == 0x03 {
-            println!("write");
-            dbg!(addr);
-            dbg!(val);
-        }
-    });
+    let bus = NesBus::new(cart, ppu);
     let mut nes = Nes::new(bus);
 
     nes.cpu.pc = 0xc000;
 
     for log_line in log_str.lines() {
-        println!("{}", log_line);
+        //println!("{}", log_line);
         let expected_log_event = parse_log_line(log_line);
         let current_log_event = LogEvent {
             pc: nes.cpu.pc,

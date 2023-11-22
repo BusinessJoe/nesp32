@@ -7,6 +7,7 @@ pub type Addr = u16;
 pub trait Bus {
     fn read(&mut self, addr: Addr) -> u8;
     fn write(&mut self, addr: Addr, value: u8);
+    fn catch_up(&mut self, time: u128);
 }
 
 pub struct NesBus<C: Cart, S: Screen> {
@@ -14,6 +15,7 @@ pub struct NesBus<C: Cart, S: Screen> {
     pub apu_io: [u8; 0x18], // will be replaced by APU/IO
     pub cart: C,
     pub ppu: Ppu<S>,
+    pub time: u128,
 
     #[cfg(feature = "debug")]
     on_read_cb: fn(addr: Addr),
@@ -28,6 +30,7 @@ impl<C: Cart, S: Screen> NesBus<C, S> {
             apu_io: [0; 0x18],
             cart,
             ppu,
+            time: 0,
             #[cfg(feature = "debug")]
             on_read_cb: |_| {},
             #[cfg(feature = "debug")]
@@ -95,5 +98,9 @@ impl<C: Cart, S: Screen> Bus for NesBus<C, S> {
             0x4018..=0x401f => {}
             0x4020..=0xffff => self.cart.write(addr, value),
         }
+    }
+
+    fn catch_up(&mut self, time: u128) {
+        self.time = time;
     }
 }

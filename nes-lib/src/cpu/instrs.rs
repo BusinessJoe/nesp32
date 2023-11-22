@@ -349,6 +349,9 @@ pub const fn generate_lut<B: Bus>() -> Lut<B> {
             // SBC (illegal)
             0xEB => sbc_immediate,
 
+            // SBX
+            0xCB => sbx,
+
             // SHA
             0x9F => sha_absolutey,
             0x93 => sha_indirecty,
@@ -1233,6 +1236,18 @@ with_addressing_mode_addr!(sax, zeropage, AddrMode::ZeroPage);
 with_addressing_mode_addr!(sax, indexedzy, AddrMode::IndexedZY);
 with_addressing_mode_addr!(sax, absolute, AddrMode::Absolute);
 with_addressing_mode_addr!(sax, indirectx, AddrMode::IndirectX);
+
+fn sbx<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B) {
+    let arg = cpu.read_from_pc(bus);
+    let t = cpu.a & cpu.x;
+    let (cmp_res, c) = t.overflowing_sub(arg);
+    cpu.x = cmp_res;
+
+    cpu.update_flags(SrUpdate {
+        c: Some(!c),
+        ..SrUpdate::num_flags(cmp_res)
+    }.result());
+}
 
 fn sha<B: Bus>(cpu: &mut Cpu<B>, bus: &mut B, addr: Addr) {
     let high = (addr >> 8) as u8;

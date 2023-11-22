@@ -74,7 +74,7 @@ impl nes_lib::Bus for MockBus {
     }
 }
 
-fn run_nes_6502_test_case(case: &Nes6502TestCase, index: usize, num_cases: usize) {
+fn run_nes_6502_state_test_case(case: &Nes6502TestCase, index: usize, num_cases: usize) {
     let mut bus = MockBus::new();
     let mut cpu = nes_lib::Cpu::new();
     initialize_nes_state(&mut cpu, &mut bus, &case.initial);
@@ -85,6 +85,25 @@ fn run_nes_6502_test_case(case: &Nes6502TestCase, index: usize, num_cases: usize
         let case = case.clone();
         panic::catch_unwind(move || {
             assert_nes_state(&cpu, &bus, &case.r#final);
+        })
+    };
+
+    if let Err(err) = result {
+        eprintln!("Case {} of {} failed:\n{:#?}", index + 1, num_cases, case);
+        panic::resume_unwind(err)
+    }
+}
+
+fn run_nes_6502_read_write_test_case(case: &Nes6502TestCase, index: usize, num_cases: usize) {
+    let mut bus = MockBus::new();
+    let mut cpu = nes_lib::Cpu::new();
+    initialize_nes_state(&mut cpu, &mut bus, &case.initial);
+
+    cpu.tick(&mut bus);
+
+    let result = {
+        let case = case.clone();
+        panic::catch_unwind(move || {
             assert_bus_events(&bus, &case.cycles);
         })
     };
@@ -141,7 +160,7 @@ fn ignore_test(path: &std::path::Path) -> bool {
     }
 
     // Unstable opcodes
-    if [0xAB, 0x9F, 0x93, 0x9E, 0x9C, 0x9B].contains(&hex) {
+    if [0xAB, 0x8B, 0x9F, 0x93, 0x9E, 0x9C, 0x9B].contains(&hex) {
         return true;
     }
 
@@ -151,10 +170,21 @@ fn ignore_test(path: &std::path::Path) -> bool {
 #[datatest::files("tests/nes6502/v1", {
     input in r"^(.*)\.json" if !ignore_test,
 })]
-fn nes_6502_opcode_test(input: &str) {
+fn nes_6502_opcode_state_test(input: &str) {
     let test_cases: Vec<Nes6502TestCase> = serde_json::from_str(input).expect("Unable to parse data");
 
     for (i, case) in test_cases.iter().enumerate() {
-        run_nes_6502_test_case(case, i, test_cases.len());
+        run_nes_6502_state_test_case(case, i, test_cases.len());
+    }
+}
+
+#[datatest::files("tests/nes6502/v1", {
+    input in r"^(.*)\.json" if !ignore_test,
+})]
+fn nes_6502_opcode_read_write_test(input: &str) {
+    let test_cases: Vec<Nes6502TestCase> = serde_json::from_str(input).expect("Unable to parse data");
+
+    for (i, case) in test_cases.iter().enumerate() {
+        run_nes_6502_read_write_test_case(case, i, test_cases.len());
     }
 }
