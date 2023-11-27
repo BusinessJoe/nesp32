@@ -6,7 +6,7 @@ use nes_lib;
 
 use pretty_assertions::assert_eq;
 use serde::Deserialize;
-use std::{fmt, fs, panic};
+use std::{fmt, panic};
 
 #[derive(Debug, Deserialize, Clone)]
 struct Nes6502TestCase {
@@ -71,6 +71,10 @@ impl nes_lib::Bus for MockBus {
 
     fn catch_up(&mut self, _: u128) {
         unimplemented!()
+    }
+
+    fn debug_chr(&self) -> Option<[u8; 0x2000]> {
+        None
     }
 }
 

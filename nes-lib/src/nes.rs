@@ -1,10 +1,15 @@
 use crate::{Bus, Cpu};
 
-#[derive(Debug)]
+#[cfg(feature = "debug")]
+use crate::Addr;
+
 pub struct Nes<B: Bus> {
     pub cpu: Cpu<B>,
     pub bus: B,
     pub time: u128,
+
+    #[cfg(feature = "debug")]
+    pub on_event: EventCb,
 }
 
 impl<B: Bus> Nes<B> {
@@ -18,6 +23,9 @@ impl<B: Bus> Nes<B> {
             cpu,
             bus,
             time: 0,
+
+            #[cfg(feature = "debug")]
+            on_event: default_event_cb()
         }
     }
 
@@ -26,4 +34,18 @@ impl<B: Bus> Nes<B> {
         self.bus.catch_up(self.time);
         self.cpu.catch_up(self.time, &mut self.bus);
     }
+}
+
+#[cfg(feature = "debug")]
+pub type EventCb = fn(EventSource);
+#[cfg(feature = "debug")]
+pub fn default_event_cb() -> EventCb {
+    |_| {}
+}
+#[cfg(feature = "debug")]
+pub enum EventSource {
+    BusRead { addr: Addr, val: u8 },
+    BusWrite { addr: Addr, val: u8 },
+    VramRead { addr: usize, val: u8 },
+    VramWrite { addr: usize, val: u8 },
 }

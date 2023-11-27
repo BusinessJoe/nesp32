@@ -1,6 +1,6 @@
 use crate::{cart::header::INesHeader, Addr};
 
-use super::{Cart, DecodeError};
+use super::{Cart, DecodeError, DeferredRead, DeferredWrite};
 
 /* Cart structs and impls */
 pub enum INesMapper {
@@ -17,15 +17,21 @@ impl INesMapper {
 }
 
 impl Cart for INesMapper {
-    fn read(&mut self, addr: Addr) -> u8 {
+    fn read(&mut self, addr: Addr) -> Result<u8, DeferredRead> {
         match self {
             INesMapper::NROM(c) => c.read(addr),
         }
     }
 
-    fn write(&mut self, addr: Addr, val: u8) {
+    fn write(&mut self, addr: Addr, val: u8) -> Option<DeferredWrite> {
         match self {
             INesMapper::NROM(c) => c.write(addr, val),
+        }
+    }
+
+    fn chr(&self) -> Option<[u8; 0x2000]> {
+        match self {
+            INesMapper::NROM(c) => c.chr()
         }
     }
 }
@@ -37,6 +43,8 @@ pub struct NROM {
     /// PRG ROM is either 16 KiB or 32 KiB, determined by this value.
     pub prg_rom_size: usize,
     pub chr_rom: [u8; 0x2000],
+
+    pub mirror_bit: usize,
 }
 
 impl NROM {
@@ -71,19 +79,26 @@ impl NROM {
 
         let chr_rom: [u8; 0x2000] = data[0..chr_rom_size].try_into().map_err(|_| DecodeError)?;
 
+        let mirror_bit: usize = match header.mirroring {
+            super::header::Mirroring::H => 10,
+            super::header::Mirroring::V => 11,
+        };
+
         Ok(Self {
             prg_ram: [0; 0x2000],
             prg_rom,
             prg_rom_size,
             chr_rom,
+            mirror_bit,
         })
     }
 }
 
 impl Cart for NROM {
-    fn read(&mut self, address: Addr) -> u8 {
+    fn read(&mut self, address: Addr) -> Result<u8, DeferredRead>  {
         let addr = usize::from(address);
-        match address {
+        Ok(match address {
+            0x0000..=0x1fff => self.chr_rom[addr],
             0x4020..=0x5fff => 0,
             0x6000..=0x7fff => self.prg_ram[addr - 0x6000],
             0x8000..=0xbfff => self.prg_rom[addr - 0x8000],
@@ -96,12 +111,29 @@ impl Cart for NROM {
             }
             // Unexpected address
             _ => panic!(),
-        }
+        })
     }
 
-    fn write(&mut self, address: Addr, val: u8) {
+    fn write(&mut self, address: Addr, val: u8) -> Option<DeferredWrite> {
         let addr = usize::from(address);
         match address {
+            0x0000..=0x1fff => {},
+            0x2000..=0x3eff => {
+                let mirrored: usize = (address % 0x1000).into();
+                // The address into a single nametable.
+                let sub_addr = mirrored % 0x400;
+
+                // True iff nametable B is being accessed.
+                let use_b = (mirrored >> self.mirror_bit) & 1 == 1;
+
+                let final_addr: usize = if !use_b {
+                    sub_addr
+                } else {
+                    sub_addr + 0x400
+                };
+
+                return Some(DeferredWrite::VRAM(final_addr, val));
+            }
             0x4020..=0x5fff => {},
             0x6000..=0x7fff => self.prg_ram[addr - 0x6000] = val,
             0x8000..=0xbfff => {}
@@ -109,5 +141,11 @@ impl Cart for NROM {
             // Unexpected address
             _ => panic!(),
         }
+
+        None
+    }
+
+    fn chr(&self) -> Option<[u8; 0x2000]> {
+        Some(self.chr_rom.clone())
     }
 }

@@ -16,7 +16,7 @@ pub struct Cpu<B: Bus> {
 
     time: u128,
     lut: [InstrFp<B>; 256],
-    jammed: bool,
+    pub jammed: bool,
 }
 
 type InstrFp<B> = fn(cpu: &mut Cpu<B>, bus: &mut B);

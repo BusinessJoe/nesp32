@@ -11,3 +11,6 @@ pub use bus::{Addr, Bus, NesBus};
 pub use cpu::Cpu;
 pub use nes::Nes;
 pub use ppu::{Color, Ppu, Screen, PixelSource};
+
+#[cfg(feature = "debug")]
+pub use nes::{EventSource, EventCb};

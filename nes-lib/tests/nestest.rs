@@ -18,7 +18,6 @@ impl Screen for MockScreen {
     fn put_pixel(&mut self, _: u16, _: u16, _: Color) { }
 }
 
-#[cfg_attr(not(feature = "debug"), ignore)]
 #[test]
 fn nestest() -> Result<(), DecodeError> {
     let rom_bytes = include_bytes!("res/nestest.nes");

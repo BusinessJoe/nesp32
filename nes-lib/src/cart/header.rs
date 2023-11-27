@@ -6,6 +6,11 @@ pub enum FileHeader {
     Nes2(Nes2Header),
 }
 
+pub enum Mirroring {
+    V,
+    H,
+}
+
 pub struct INesHeader {
     /// Size of PRG ROM in 16 KB units.
     pub prg_rom_size: usize,
@@ -15,6 +20,8 @@ pub struct INesHeader {
     pub mapper_num: u8,
 
     pub has_trainer: bool,
+
+    pub mirroring: Mirroring,
 }
 
 pub struct Nes2Header;
@@ -25,11 +32,14 @@ impl INesHeader {
         let chr_rom_size: usize = header[5].into();
         let mapper_num: u8 = header[6] >> 4 | header[7] & 0xf0;
         let has_trainer = header[6] & 0b100 == 0b100;
+        let mirroring = if header[6] & 1 == 0 { Mirroring::H } else { Mirroring::V };
+
         Self {
             prg_rom_size,
             chr_rom_size,
             mapper_num,
             has_trainer,
+            mirroring,
         }
     }
 }

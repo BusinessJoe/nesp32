@@ -117,6 +117,10 @@ mod test {
         fn catch_up(&mut self, _: u128) {
             unimplemented!()
         }
+
+        fn debug_chr(&self) -> Option<[u8; 0x2000]> {
+            None
+        }
     }
 
     #[test]
